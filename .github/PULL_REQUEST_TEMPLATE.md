@@ -1,0 +1,14 @@
+## Summary
+
+<!-- What changed, and why? -->
+
+## Testing
+
+<!-- How did you test this? -->
+
+## Checklist
+
+- [ ] The change is focused and easy to review.
+- [ ] I tested the affected behavior.
+- [ ] Speech processing remains on-device, or any network dependency is clearly documented.
+- [ ] README or inline documentation was updated, if behavior or requirements changed

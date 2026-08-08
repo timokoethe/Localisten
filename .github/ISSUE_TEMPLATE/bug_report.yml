@@ -1,0 +1,126 @@
+name: Bug report
+description: Tell us about something in Localisten that is not working correctly.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a Localisten issue.
+        Please do not include private recordings, transcripts, credentials, or sensitive screenshots.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe what you expected and what happened instead.
+      placeholder: I expected... but instead...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the smallest sequence that causes the problem.
+      placeholder: |
+        1. Open Localisten
+        2. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Which part of Localisten is affected?
+      options:
+        - Live transcription
+        - Microphone or audio capture
+        - Recognition accuracy
+        - Language or locale handling
+        - On-device recognition availability
+        - Permissions
+        - Audio session or interruptions
+        - Settings screen
+        - Build or project setup
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device or simulator
+      placeholder: iPhone 17 Pro simulator, iPhone 16, etc.
+    validations:
+      required: true
+  - type: input
+    id: ios_version
+    attributes:
+      label: iOS version
+      placeholder: iOS 26.x
+    validations:
+      required: true
+  - type: input
+    id: xcode_version
+    attributes:
+      label: Xcode version
+      placeholder: Xcode 26.x
+    validations:
+      required: false
+  - type: input
+    id: language_locale
+    attributes:
+      label: Recognition language or locale
+      description: Which language or locale was selected when the problem occurred?
+      placeholder: English (United States), en-US, German (Germany), de-DE, etc.
+    validations:
+      required: false
+  - type: dropdown
+    id: audio_source
+    attributes:
+      label: Audio source
+      description: What audio source was used when the problem occurred?
+      options:
+        - Device microphone
+        - Imported or prerecorded audio
+        - Another audio source
+        - Not applicable
+        - Not sure
+    validations:
+      required: false
+  - type: dropdown
+    id: speech_recognition_status
+    attributes:
+      label: On-device speech recognition status
+      description: What did Localisten show about on-device recognition, if relevant?
+      options:
+        - Available and ready
+        - Language or locale unavailable
+        - Required assets not ready or downloading
+        - Microphone or speech recognition permission denied
+        - Unavailable for another reason
+        - Not sure
+    validations:
+      required: false
+  - type: dropdown
+    id: offline_reproduction
+    attributes:
+      label: Reproducible offline
+      description: Does the issue also occur with the device disconnected from the network?
+      options:
+        - "Yes"
+        - "No"
+        - Not tested
+        - Not applicable
+    validations:
+      required: false
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots, recording, or logs
+      description: Add anything that helps explain the issue. Remove private recordings, transcripts, or other sensitive content first.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add any related details, workarounds, or whether this started after a specific change.
