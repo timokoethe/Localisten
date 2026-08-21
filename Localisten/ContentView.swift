@@ -18,6 +18,7 @@ struct ContentView: View {
                 AudioFileTranscriptionView()
             }
         }
+        .tint(Color("Tint"))
     }
 }
 
