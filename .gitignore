@@ -1,6 +1,11 @@
 ## Mac OS
 .DS_Store
 
+## Local environment
+.env
+.env.*
+Config/Local.xcconfig
+
 ## Xcode workspace
 *.xcworkspace
 

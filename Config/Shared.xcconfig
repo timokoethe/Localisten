@@ -1,0 +1,9 @@
+// Defaults that keep unsigned builds portable across machines.
+LOCALISTEN_DEVELOPMENT_TEAM =
+LOCALISTEN_BUNDLE_IDENTIFIER = com.example.Localisten
+
+// Optional per-developer overrides. This file is intentionally not committed.
+#include? "Local.xcconfig"
+
+DEVELOPMENT_TEAM = $(LOCALISTEN_DEVELOPMENT_TEAM)
+PRODUCT_BUNDLE_IDENTIFIER = $(LOCALISTEN_BUNDLE_IDENTIFIER)
