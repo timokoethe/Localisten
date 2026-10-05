@@ -19,9 +19,8 @@ As a user, I want to transcribe an audio file so that I can read and select its 
 ## Acceptance Criteria
 
 - “Add Audio File” opens the system picker for a single audio file.
-- The selected file name and a loading indicator appear during transcription.
+- The initial screen remains visible during transcription, with “Add Audio File” disabled until processing finishes.
 - Recognition uses a supported equivalent of the device's current locale and installs required speech assets when needed.
 - Successful transcription displays the file name and a scrollable, selectable transcript.
 - “Reset” clears the result and returns to file selection.
 - Import or transcription failures display an error and offer “Choose Another File”; empty audio, no detected speech, and unsupported locales have specific messages.
-

@@ -17,21 +17,26 @@ final class TranscriptionService {
     private init() {}
 
     func startLiveTranscription() async throws -> AsyncThrowingStream<String, Error> {
-        stopLiveTranscription()
+        try Task.checkCancellation()
+        cancelLiveTranscription()
 
         guard await AVAudioApplication.requestRecordPermission() else {
             throw TranscriptionError.microphonePermissionDenied
         }
+        try Task.checkCancellation()
 
         guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale.current) else {
             throw TranscriptionError.unsupportedLocale
         }
+        try Task.checkCancellation()
 
         let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
 
         if let installationRequest = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+            try Task.checkCancellation()
             try await installationRequest.downloadAndInstall()
         }
+        try Task.checkCancellation()
 
         let audioEngine = AVAudioEngine()
         let inputNode = audioEngine.inputNode
@@ -44,6 +49,7 @@ final class TranscriptionService {
         let converter = Self.makeConverterIfNeeded(from: inputFormat, to: analysisFormat)
         let analyzer = SpeechAnalyzer(modules: [transcriber])
         try await analyzer.prepareToAnalyze(in: analysisFormat)
+        try Task.checkCancellation()
 
         let (inputStream, inputContinuation) = AsyncThrowingStream.makeStream(of: AnalyzerInput.self)
         let (transcriptionStream, transcriptionContinuation) = AsyncThrowingStream.makeStream(of: String.self)
@@ -61,9 +67,17 @@ final class TranscriptionService {
         }
 
         let audioSession = AVAudioSession.sharedInstance()
-        try audioSession.setCategory(.record, mode: .measurement, options: [.duckOthers])
-        try audioSession.setActive(true)
-        try audioEngine.start()
+        do {
+            try audioSession.setCategory(.record, mode: .measurement, options: [.duckOthers])
+            try audioSession.setActive(true)
+            try audioEngine.start()
+        } catch {
+            audioEngine.inputNode.removeTap(onBus: 0)
+            audioEngine.stop()
+            try? audioSession.setActive(false, options: .notifyOthersOnDeactivation)
+            await analyzer.cancelAndFinishNow()
+            throw error
+        }
 
         let analysisTask = Task {
             do {
@@ -82,34 +96,14 @@ final class TranscriptionService {
 
         let resultsTask = Task {
             do {
-                var segments: [LiveTranscriptionSegment] = []
+                var transcript = LiveTranscript()
 
                 for try await result in transcriber.results {
-                    let text = String(result.text.characters)
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-
-                    guard !text.isEmpty else {
-                        continue
-                    }
-
-                    let segment = LiveTranscriptionSegment(
-                        startTime: result.range.start.seconds,
-                        text: text
+                    transcript.update(
+                        text: String(result.text.characters),
+                        isFinal: result.isFinal
                     )
-
-                    if let index = segments.firstIndex(where: { $0.startTime == segment.startTime }) {
-                        segments[index] = segment
-                    } else {
-                        segments.append(segment)
-                    }
-
-                    let transcription = segments
-                        .sorted { $0.startTime < $1.startTime }
-                        .map(\.text)
-                        .joined(separator: " ")
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-
-                    transcriptionContinuation.yield(transcription)
+                    transcriptionContinuation.yield(transcript.text)
                 }
 
                 transcriptionContinuation.finish()
@@ -132,6 +126,10 @@ final class TranscriptionService {
 
     func stopLiveTranscription() {
         liveSession?.stop()
+    }
+
+    func cancelLiveTranscription() {
+        liveSession?.cancel()
         liveSession = nil
     }
 
@@ -217,12 +215,33 @@ enum TranscriptionError: LocalizedError {
     }
 }
 
-private struct LiveTranscriptionSegment {
-    let startTime: TimeInterval
-    let text: String
+private struct LiveTranscript {
+    private var finalizedParts: [String] = []
+    private var provisionalText = ""
+
+    var text: String {
+        (finalizedParts + [provisionalText])
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    mutating func update(text: String, isFinal: Bool) {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if isFinal {
+            if !text.isEmpty {
+                finalizedParts.append(text)
+            }
+            // The final result replaces the provisional version of this phrase.
+            provisionalText = ""
+        } else {
+            provisionalText = text
+        }
+    }
 }
 
 private final class LiveTranscriptionSession {
+    private var isStopped = false
     let audioEngine: AVAudioEngine
     let inputContinuation: AsyncThrowingStream<AnalyzerInput, Error>.Continuation
     let transcriptionContinuation: AsyncThrowingStream<String, Error>.Continuation
@@ -244,13 +263,19 @@ private final class LiveTranscriptionSession {
     }
 
     func stop() {
+        guard !isStopped else { return }
+        isStopped = true
         audioEngine.inputNode.removeTap(onBus: 0)
         audioEngine.stop()
         inputContinuation.finish()
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    func cancel() {
+        stop()
         transcriptionContinuation.finish()
         analysisTask.cancel()
         resultsTask.cancel()
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }
 

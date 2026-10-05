@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct LiveTranscriptionView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel: LiveTranscriptionViewModel
 
     init(initialState: LiveTranscriptionViewModel.State = .idle) {
@@ -27,29 +28,25 @@ struct LiveTranscriptionView: View {
             .onDisappear {
                 viewModel.stopTranscription()
             }
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .active {
+                    viewModel.stopTranscription()
+                }
+            }
         }
     }
 
     @ViewBuilder
     private var stateContent: some View {
         switch viewModel.state {
-        case .idle:
+        case .idle, .preparing:
             ContentUnavailableView {
                 Label("Ready to Listen", systemImage: "mic")
             } description: {
                 Text("Start live transcription to capture speech from the microphone.")
             } actions: {
                 startButton
-            }
-
-        case .preparing:
-            VStack(alignment: .leading, spacing: 16) {
-                Label("Preparing Microphone", systemImage: "mic.fill")
-                    .font(.headline)
-                    .foregroundStyle(Color("Tint"))
-
-                ProgressView("Starting live transcription...")
-                    .progressViewStyle(.linear)
+                    .disabled(viewModel.state == .preparing)
             }
 
         case .recording(let transcription):
