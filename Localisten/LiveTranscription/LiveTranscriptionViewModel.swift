@@ -40,19 +40,61 @@ final class LiveTranscriptionViewModel {
 
     deinit {
         transcriptionTask?.cancel()
-        transcriptionService.stopLiveTranscription()
+        transcriptionService.cancelLiveTranscription()
     }
 
     func startTranscription() {
-        //
+        guard transcriptionTask == nil else { return }
+        state = .preparing
+
+        let service = transcriptionService
+        transcriptionTask = Task { [weak self] in
+            do {
+                let updates = try await service.startLiveTranscription()
+                guard !Task.isCancelled else { return }
+                self?.state = .recording(transcription: "")
+
+                for try await transcription in updates {
+                    guard !Task.isCancelled else { return }
+
+                    // Keep final results arriving after Stop visible.
+                    if case .stopped = self?.state {
+                        self?.state = .stopped(transcription: transcription)
+                    } else {
+                        self?.state = .recording(transcription: transcription)
+                    }
+                }
+
+                guard !Task.isCancelled else { return }
+                if case .recording(let transcription) = self?.state {
+                    self?.state = .stopped(transcription: transcription)
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                self?.state = .failed(message: self?.userFacingMessage(for: error) ?? error.localizedDescription)
+            }
+
+            service.cancelLiveTranscription()
+            self?.transcriptionTask = nil
+        }
     }
 
     func stopTranscription() {
-        //
+        switch state {
+        case .preparing:
+            reset()
+        case .recording(let transcription):
+            state = .stopped(transcription: transcription)
+            transcriptionService.stopLiveTranscription()
+        default:
+            break
+        }
     }
 
     func reset() {
-        stopTranscription()
+        transcriptionTask?.cancel()
+        transcriptionTask = nil
+        transcriptionService.cancelLiveTranscription()
         state = .idle
     }
 
