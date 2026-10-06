@@ -29,6 +29,7 @@ final class LiveTranscriptionViewModel {
 
     private let transcriptionService: TranscriptionService
     private var transcriptionTask: Task<Void, Never>?
+    private var sessionID: UUID?
 
     init(
         initialState: State = .idle,
@@ -45,17 +46,20 @@ final class LiveTranscriptionViewModel {
 
     func startTranscription() {
         guard transcriptionTask == nil else { return }
+        let sessionID = UUID()
+        self.sessionID = sessionID
         state = .preparing
 
         let service = transcriptionService
         transcriptionTask = Task { [weak self] in
+            guard !Task.isCancelled, self?.sessionID == sessionID else { return }
             do {
                 let updates = try await service.startLiveTranscription()
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, self?.sessionID == sessionID else { return }
                 self?.state = .recording(transcription: "")
 
                 for try await transcription in updates {
-                    guard !Task.isCancelled else { return }
+                    guard !Task.isCancelled, self?.sessionID == sessionID else { return }
 
                     // Keep final results arriving after Stop visible.
                     if case .stopped = self?.state {
@@ -65,17 +69,20 @@ final class LiveTranscriptionViewModel {
                     }
                 }
 
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, self?.sessionID == sessionID else { return }
                 if case .recording(let transcription) = self?.state {
                     self?.state = .stopped(transcription: transcription)
                 }
             } catch {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, self?.sessionID == sessionID else { return }
                 self?.state = .failed(message: self?.userFacingMessage(for: error) ?? error.localizedDescription)
             }
 
+            // Only the current session may clean up the shared service and task.
+            guard self?.sessionID == sessionID else { return }
             service.cancelLiveTranscription()
             self?.transcriptionTask = nil
+            self?.sessionID = nil
         }
     }
 
@@ -92,6 +99,7 @@ final class LiveTranscriptionViewModel {
     }
 
     func reset() {
+        sessionID = nil
         transcriptionTask?.cancel()
         transcriptionTask = nil
         transcriptionService.cancelLiveTranscription()
